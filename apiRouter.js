@@ -5,9 +5,7 @@ const { MongoClient } = require("mongodb");
 const router = express.Router();
 const uri = process.env.MONGO_URI;
 const port = process.env.PORT || 3000;
-const client = new MongoClient(
-  `mongodb+srv://CleverGrace:%23.J87tasTptRJaw@emailtemplatecluster.7wg7scv.mongodb.net/?retryWrites=true&w=majority&appName=emailTemplateCluster`
-);
+const client = new MongoClient(uri);
 
 router.post("/convert-mjml", async (req, res) => {
   const { mjml: mjmlString } = req.body;
