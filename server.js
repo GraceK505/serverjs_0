@@ -7,14 +7,22 @@ const apiRouter = require('./apiRouter');
 const port = process.env.PORT || 3000;
 const app = express();
 
+app.use((req, res, next) => {
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
+
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 app.use(express.static('public'));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(cors({
-  origin: "*",
-  methods: ['GET', 'POST'],
+  origin: [
+    'http://localhost:4200',
+    'https://gracek505.github.io'
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
   credentials: true
 }));
 
