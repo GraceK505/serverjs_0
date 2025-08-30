@@ -1,29 +1,14 @@
 const express = require("express");
+const bodyParser = require("body-parser");
 const mjml = require("mjml");
-const mongoose = require("mongoose");
-const multer = require("multer");
-const nodemailer = require("nodemailer");
-const dotenv = require("dotenv");
-const fs = require("fs");
-
-dotenv.config();
+const { MongoClient } = require("mongodb");
 const router = express.Router();
+const uri = process.env.MONGO_URI;
+const port = process.env.PORT || 3000;
+const client = new MongoClient(
+  `mongodb+srv://CleverGrace:%23.J87tasTptRJaw@emailtemplatecluster.7wg7scv.mongodb.net/?retryWrites=true&w=majority&appName=emailTemplateCluster`
+);
 
-// 🔌 MongoDB Lazy Connection
-let isConnected = false;
-async function connectDB() {
-  if (!isConnected) {
-    const uri = `mongodb+srv://CleverGrace:%23.J87tasTptRJaw@emailtemplatecluster.7wg7scv.mongodb.net/?retryWrites=true&w=majority&appName=emailTemplateCluster`;
-    if (!uri) throw new Error("MongoDB URI not found");
-
-    await mongoose.connect(uri);
-
-    isConnected = true;
-    console.log("✅ MongoDB connected");
-  }
-}
-
-// 📤 MJML Conversion Endpoint
 router.post("/convert-mjml", async (req, res) => {
   const { mjml: mjmlString } = req.body;
 
@@ -40,54 +25,90 @@ router.post("/convert-mjml", async (req, res) => {
   }
 });
 
-// 📬 Email Fetch Endpoint
 router.get("/emails", async (req, res) => {
   try {
-    await connectDB();
-    const emails = await mongoose.connection.db.collection("CleverGraceDB").find().toArray();
+    await client.connect();
+    db = await client.db("CleverGraceDB");
+    const emails = await db.collection("CleverGraceDB").find().toArray();
+
     res.status(200).json(emails);
   } catch (error) {
-    console.error("Email fetch error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// 📎 Multer Setup
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, "./uploads"),
-  filename: (req, file, cb) => cb(null, `${file.fieldname}_${Date.now()}_${file.originalname}`)
+const dotenv = require("dotenv");
+const multer = require('multer');
+const nodemailer = require('nodemailer');
+const fs = require('fs');
+
+dotenv.config();
+
+// Multer setup
+const dStorage = multer.diskStorage({
+  destination: (req, file, callback) => {
+    callback(null, './uploads');
+  },
+  filename: (req, file, callback) => {
+    callback(null, `${file.fieldname}_${Date.now()}_${file.originalname}`);
+  }
 });
-const upload = multer({ storage });
 
-// 📧 Email Sending Endpoint
-router.post("/send-email", upload.single("file"), async (req, res) => {
+const upload = multer({ storage: dStorage });
+
+const user_mail = process.env.EMAIL_USER;
+const email_pass = process.env.EMAIL_PASS;
+const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+const portSMTP = process.env.SMTP_PORT || '465';
+const secure = process.env.SECURE === 'true';
+const service = process.env.SERVICE || 'gmail';
+
+router.post('/send-email', upload.single('file'), async (req, res) => {
   const { name, recipient, subject, html } = req.body;
-
+  
   try {
+    const emailSubject = subject || `Message from ${name}`;
+
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: process.env.SMTP_PORT || 465,
-      secure: process.env.SECURE === "true",
-      service: process.env.SERVICE || "gmail",
+      host,
+      port: portSMTP,
+      secure,
+      service,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+        user: "antoinefaith1@gmail.com",
+        pass: "eefv ierk zcuy ldla",
+        clientId: "100669861850-tr9amt92s25npjcb92j0hbtp2nfrclkq.apps.googleusercontent.com"
+      }
     });
 
     const mailOptions = {
       from: name,
-      to: recipient,
-      subject: subject || `Message from ${name}`,
-      html,
+      to: [recipient].join(","),
+      subject: emailSubject,
+      html: html
     };
 
     await transporter.sendMail(mailOptions);
-    res.status(200).json({ success: true, message: "Email sent successfully!" });
+    // if (file && typeof file === 'string') {
+    //   fs.unlinkSync(file);
+    //   fs.unlink(filePath, (err) => {
+    //     if (err) {
+    //       console.error('❌ Failed to delete file:', err);
+    //     } else {
+    //       console.log('✅ File deleted:', filePath);
+    //     }
+    //   });
+
+    // } else {
+    //   console.warn('Invalid file path:', file);
+    // }
+
+
+    res.status(200).json({ success: true, message: 'Email sent successfully!' });
   } catch (err) {
-    console.error("Email send error:", err.message);
-    if (req.file) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: "Failed to send email." });
+    console.error(err);
+    if (file) fs.unlinkSync(file.path);
+    res.status(500).json({ error: 'Failed to send email.' });
   }
 });
 
